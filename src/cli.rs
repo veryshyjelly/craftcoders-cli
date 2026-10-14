@@ -16,7 +16,7 @@ pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
 
-    /// Set the base directory for courses and testers (default: ~/.cc)
+    /// Set the base directory for courses and testers (default: ~/.craftcodeers)
     #[arg(long, global = true, env = "CC_HOME")]
     pub cc_home: Option<PathBuf>,
 

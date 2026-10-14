@@ -5,7 +5,7 @@ use dirs::home_dir;
 use std::path::{Path, PathBuf};
 
 /// Default base directory for courses and testers
-const DEFAULT_CC_HOME: &str = ".cc";
+const DEFAULT_CC_HOME: &str = ".craftcoders";
 
 /// Resolve the CC_HOME directory
 pub fn cc_home(override_dir: Option<&Path>) -> Result<PathBuf> {
@@ -55,9 +55,9 @@ impl CoursePaths {
 }
 
 /// Project configuration file name
-pub const PROJECT_FILE: &str = ".cc.json";
+pub const PROJECT_FILE: &str = ".craftcoders.json";
 
-/// Find the project root by looking for .cc.json
+/// Find the project root by looking for .craftcoders.json
 pub fn find_project_root(start: &Path) -> Result<PathBuf> {
     let mut current = start.to_path_buf();
     loop {
@@ -66,7 +66,7 @@ pub fn find_project_root(start: &Path) -> Result<PathBuf> {
             return Ok(current);
         }
         if !current.pop() {
-            anyhow::bail!("not inside a cc project (no {} found). Run `cc init <course>` first.", PROJECT_FILE);
+            anyhow::bail!("not inside a craftcoders project (no {} found). Run `craftcoders init <course>` first.", PROJECT_FILE);
         }
     }
 }

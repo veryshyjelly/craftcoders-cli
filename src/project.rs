@@ -1,4 +1,4 @@
-//! Project state management (.cc.json)
+//! Project state management (.craftcoders.json)
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};

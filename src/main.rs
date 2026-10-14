@@ -1,4 +1,4 @@
-//! cc - Practice CodeCrafters challenges locally
+//! craftcoders - Practice CodeCrafters challenges locally
 
 mod cli;
 mod commands;

@@ -179,7 +179,7 @@ pub fn run_tester(
             let os = fs::read_to_string(&os_marker)?;
             if os.trim() != "linux" {
                 anyhow::bail!(
-                    "docker mode needs a linux tester binary (current: {}); rebuild with `cc update` or build on linux",
+                    "docker mode needs a linux tester binary (current: {}); rebuild with `craftcoders update` or build on linux",
                     os.trim()
                 );
             }
@@ -247,7 +247,7 @@ pub fn run_tester(
 #[allow(dead_code)]
 pub fn check_tester(course_paths: &CoursePaths) -> Result<()> {
     if !course_paths.tester_binary.exists() {
-        anyhow::bail!("tester binary not found; run `cc update` to build it");
+        anyhow::bail!("tester binary not found; run `craftcoders update` to build it");
     }
     Ok(())
 }
