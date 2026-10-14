@@ -21,6 +21,7 @@ pub fn cc_home(override_dir: Option<&Path>) -> Result<PathBuf> {
 
 /// Paths within CC_HOME for a given course
 pub struct CoursePaths {
+    #[allow(dead_code)]
     pub base: PathBuf,
     pub definition: PathBuf,
     pub tester_src: PathBuf,

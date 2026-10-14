@@ -137,13 +137,28 @@ fn run_test_common(
     only_current: bool,
     upto: Option<&str>,
     cli_cc_home: Option<&Path>,
-    no_color: bool,
+    _no_color: bool,
 ) -> Result<i32> {
     let project_root = find_project_root(Path::new("."))?;
     let config = load_project(&project_root)?;
     let cc_home_dir = cc_home(cli_cc_home)?;
     let course_paths = CoursePaths::new(&cc_home_dir, &config.course);
     let def = load_definition(&course_paths.definition)?;
+
+    // Run compile.sh if it exists and we're not in dry-run mode
+    if !dry_run {
+        let compile_script = project_root.join("compile.sh");
+        if compile_script.exists() {
+            println!("{}", "Running compile.sh...".dimmed());
+            let status = Command::new(&compile_script)
+                .current_dir(&project_root)
+                .status()
+                .context("running compile.sh")?;
+            if !status.success() {
+                anyhow::bail!("compile.sh failed with exit code: {}", status.code().unwrap_or(-1));
+            }
+        }
+    }
 
     let stages = ordered_stages(&def, &config.extensions);
     let cur_idx = current_stage_index(&stages, &config.completed)

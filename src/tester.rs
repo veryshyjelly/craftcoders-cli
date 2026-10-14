@@ -244,6 +244,7 @@ pub fn run_tester(
 }
 
 /// Check if tester binary exists and is usable
+#[allow(dead_code)]
 pub fn check_tester(course_paths: &CoursePaths) -> Result<()> {
     if !course_paths.tester_binary.exists() {
         anyhow::bail!("tester binary not found; run `cc update` to build it");

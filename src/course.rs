@@ -96,6 +96,7 @@ pub fn read_stage_markdown(definition_dir: &Path, slug: &str) -> Result<Option<S
 pub struct ExtensionInfo {
     pub slug: String,
     pub name: String,
+    #[allow(dead_code)]
     pub description: String,
     pub stage_count: usize,
     pub enabled: bool,

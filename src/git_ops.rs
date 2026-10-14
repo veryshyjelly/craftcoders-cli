@@ -54,10 +54,8 @@ pub fn ensure_repos(
     let definition_dir = course_dir.join("definition");
     let tester_dir = course_dir.join("tester");
 
-    let tester_repo = tester_repo_override.unwrap_or(&format!("{}-tester", course)).to_string();
-
-    clone_repo(&format!("{}/build-your-own-{}.git", ORG_URL, course), &definition_dir)?;
-    clone_repo(&format!("{}/{}.git", ORG_URL, tester_repo), &tester_dir)?;
+    clone_repo(&course_repo_url(course), &definition_dir)?;
+    clone_repo(&tester_repo_url(course, tester_repo_override), &tester_dir)?;
 
     Ok((definition_dir, tester_dir))
 }
