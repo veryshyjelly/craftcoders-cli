@@ -57,20 +57,22 @@ pub fn init_project(project_root: &Path, course: String) -> Result<()> {
 debug: false
 "#).with_context(|| format!("writing {}", codecrafters_yml.display()))?;
 
+    let compile = project_root.join("compile.sh");
+    let compile_content = r#"#!/bin/sh
+# The tester runs this file to build your program.
+
+# Replace the line below with whatever runs your implementation, e.g.
+# cargo build
+echo "edit compile.sh to build your program" >&2
+exit 1
+"#;
+    fs::write(&compile, compile_content)
+        .with_context(|| format!("writing {}", compile.display()))?;
+
     // Create your_program.sh entry point
     let entry = project_root.join("your_program.sh");
     let entry_content = r#"#!/bin/sh
 # The tester runs this file to start your program.
-# It will first run compile.sh if it exists, then launch your implementation.
-
-# Run compile script if it exists
-if [ -f "./compile.sh" ]; then
-    echo "Running compile.sh..."
-    ./compile.sh || {
-        echo "Compilation failed!" >&2
-        exit 1
-    }
-fi
 
 # Replace the line below with whatever runs your implementation, e.g.
 #   exec python3 -u app/main.py "$@"
@@ -88,7 +90,8 @@ exit 1
         use std::os::unix::fs::PermissionsExt;
         let mut perms = fs::metadata(&entry)?.permissions();
         perms.set_mode(0o755);
-        fs::set_permissions(&entry, perms)?;
+        fs::set_permissions(&entry, perms.clone())?;
+        fs::set_permissions(&compile, perms)?;
     }
 
     // Initialize git repo if available

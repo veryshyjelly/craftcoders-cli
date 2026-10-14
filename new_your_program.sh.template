@@ -2,15 +2,6 @@
 # The tester runs this file to start your program.
 # It will first run compile.sh if it exists, then launch your implementation.
 
-# Run compile script if it exists
-if [ -f "./compile.sh" ]; then
-    echo "Running compile.sh..."
-    ./compile.sh || {
-        echo "Compilation failed!" >&2
-        exit 1
-    }
-fi
-
 # Replace the line below with whatever runs your implementation, e.g.
 #   exec python3 -u app/main.py "$@"
 #   exec go run ./app "$@"
