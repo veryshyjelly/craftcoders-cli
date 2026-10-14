@@ -193,6 +193,19 @@ pub fn cmd_submit(args: &SubmitArgs, cli_cc_home: Option<&Path>, _no_color: bool
     let course_paths = CoursePaths::new(&cc_home_dir, &config.course);
     let def = load_definition(&course_paths.definition)?;
 
+
+    let compile_script = project_root.join("compile.sh");
+    if compile_script.exists() {
+        println!("{}", "Running compile.sh...".dimmed());
+        let status = Command::new(&compile_script)
+            .current_dir(&project_root)
+            .status()
+            .context("running compile.sh")?;
+        if !status.success() {
+            anyhow::bail!("compile.sh failed with exit code: {}", status.code().unwrap_or(-1));
+        }
+    }
+
     let stages = ordered_stages(&def, &config.extensions);
     let cur_idx = current_stage_index(&stages, &config.completed)
         .context("all stages are complete. Enable more with `craftcoders ext add <slug>`.")?;
