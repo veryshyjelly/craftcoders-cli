@@ -42,39 +42,48 @@ pub fn resolve_templates(text: &str) -> String {
 
 /// Remove {{#lang_is_X}}...{{/lang_is_X}} blocks (drop them entirely)
 fn remove_lang_is_blocks(text: &str) -> String {
-    let open_regex = Regex::new(r"\{\{#lang_is_(\w+)\}\}").unwrap();
-    let _close_regex = Regex::new(r"\{\{/lang_is_(\w+)\}\}").unwrap();
+    let mut result = text.to_string();
+    let mut changed = true;
 
-    let mut result = String::new();
-    let mut pos = 0;
+    while changed {
+        changed = false;
+        let mut new_result = String::new();
+        let mut pos = 0;
 
-    while let Some(open_match) = open_regex.find_at(text, pos) {
-        // Copy text before the opening tag
-        result.push_str(&text[pos..open_match.start()]);
+        let open_regex = Regex::new(r"\{\{#lang_is_(\w+)\}\}").unwrap();
 
-        // Extract the language from the opening tag
-        if let Some(caps) = open_regex.captures_at(text, open_match.start()) {
-            let lang = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+        while let Some(open_match) = open_regex.find_at(&result, pos) {
+            // Copy text before the opening tag
+            new_result.push_str(&result[pos..open_match.start()]);
 
-            // Find the matching closing tag
-            let close_pattern = format!("{{{{/lang_is_{}}}}}", regex::escape(lang));
-            let close_regex_specific = Regex::new(&close_pattern).unwrap();
+            // Extract the language from the opening tag
+            if let Some(caps) = open_regex.captures_at(&result, open_match.start()) {
+                let lang = caps.get(1).map(|m| m.as_str()).unwrap_or("");
 
-            if let Some(close_match) = close_regex_specific.find_at(text, open_match.end()) {
-                // Skip the entire block (opening tag + content + closing tag)
-                pos = close_match.end();
+                // Find the matching closing tag
+                let literal_close = format!("{{{{/lang_is_{}}}}}", lang);
+                let close_pattern = regex::escape(&literal_close);
+                let close_regex_specific = Regex::new(&close_pattern).unwrap();
+
+                if let Some(close_match) = close_regex_specific.find_at(&result, open_match.end()) {
+                    // Skip the entire block (opening tag + content + closing tag)
+                    pos = close_match.end();
+                    changed = true;
+                } else {
+                    // No matching closing tag, keep the opening tag and continue
+                    new_result.push_str(&result[open_match.start()..open_match.end()]);
+                    pos = open_match.end();
+                }
             } else {
-                // No matching closing tag, keep the opening tag and continue
-                result.push_str(&text[open_match.start()..open_match.end()]);
                 pos = open_match.end();
             }
-        } else {
-            pos = open_match.end();
         }
+
+        // Copy remaining text
+        new_result.push_str(&result[pos..]);
+        result = new_result;
     }
 
-    // Copy remaining text
-    result.push_str(&text[pos..]);
     result
 }
 
@@ -95,7 +104,8 @@ fn remove_lang_not_blocks(text: &str) -> String {
 
             if let Some(caps) = open_regex.captures_at(&result, open_match.start()) {
                 let lang = caps.get(1).map(|m| m.as_str()).unwrap_or("");
-                let close_pattern = format!("{{{{/lang_is_{}}}}}", regex::escape(lang));
+                let literal_close = format!("{{{{/lang_is_{}}}}}", lang);
+                let close_pattern = regex::escape(&literal_close);
                 let close_regex_specific = Regex::new(&close_pattern).unwrap();
 
                 if let Some(close_match) = close_regex_specific.find_at(&result, open_match.end()) {
