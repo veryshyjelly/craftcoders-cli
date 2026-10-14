@@ -1,0 +1,38 @@
+[package]
+name = "craftcoders"
+version = "0.1.0"
+edition = "2024"
+description = "Practice CodeCrafters challenges locally — no website, no starters, just you and the official testers"
+repository = "https://github.com/codecrafters-io"
+license = "MIT"
+authors = ["Ayush Biswas"]
+
+[profile.release]
+lto = true
+strip = "symbols"
+codegen-units = 1
+panic = "abort"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive", "env", "color", "help", "usage"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+anyhow = "1.0"
+owo-colors = { version = "4.0", features = ["supports-colors"] }
+anstream = "0.6"
+termimad = { version = "0.35", features = ["special-renders"] }
+crossterm = "0.28"
+which = "6.0"
+dirs = "5.0"
+walkdir = "2.4"
+regex = "1.10"
+tempfile = "3.10"
+indicatif = "0.18"
+tokio = { version = "1.40", features = ["rt-multi-thread", "fs", "process", "signal", "macros"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+[dev-dependencies]
+tempfile = "3.10"
+predicates = "3.1"
