@@ -77,11 +77,14 @@ chmod +x your_program.sh
 
 ### 4. Test Your Progress
 ```bash
-# Test current stage and all previous stages
+# Test only the current stage without advancing
 craftcoders test
 
-# Test and advance to next stage if successful
+# Test all stages through the current stage and advance if successful
 craftcoders submit
+
+# Explicitly test all stages through a given stage (number or slug)
+craftcoders test --upto 3
 
 # Run with Docker (optional)
 craftcoders test --docker redis:7-alpine
@@ -122,9 +125,9 @@ craftcoders status --current-only
 ```
 
 ### Progress Tracking System
-- Stores completion status in `~/.craftcoders/progress.json`
-- Automatically detects completed stages when running `craftcoders test`
-- Prevents re-testing completed stages unless explicitly requested
+- Stores completion status in the project's `.craftcoders.json`
+- Tests only the current stage with `craftcoders test`, without changing progress
+- Re-tests all stages through the current stage with `craftcoders submit` and advances only when they all pass
 - Supports resuming progress after interruptions
 
 ## 📖 Command Reference
@@ -140,8 +143,8 @@ craftcoders status --current-only
 | Command                                 | Description                                         |
 | --------------------------------------- | --------------------------------------------------- |
 | `craftcoders show [stage] [--no-color]` | Display instructions for current or specified stage |
-| `craftcoders test [--docker <image>]`   | Run tests for all completed stages + current stage  |
-| `craftcoders submit [--docker <image>]` | Run tests and advance to next stage on craftcoders  |
+| `craftcoders test [--docker <image>]`   | Run tests for only the current stage                |
+| `craftcoders submit [--docker <image>]` | Test all stages through current and advance on pass |
 | `craftcoders status [--current-only]`   | Show progress through the challenge                 |
 
 ### Extension Management

@@ -130,7 +130,7 @@ pub fn cmd_show(args: &ShowArgs, cli_cc_home: Option<&Path>, no_color: bool) -> 
     Ok(())
 }
 
-/// Run tests - common logic for test and submit
+/// Run tests without advancing progress
 fn run_test_common(
     docker_image: Option<&str>,
     dry_run: bool,
@@ -182,7 +182,8 @@ fn run_test_common(
 
 /// Run tests
 pub fn cmd_test(args: &TestArgs, cli_cc_home: Option<&Path>, no_color: bool) -> Result<i32> {
-    run_test_common(args.docker.as_deref(), args.dry_run, args.only_current, args.upto.as_deref(), cli_cc_home, no_color)
+    let only_current = args.only_current || args.upto.is_none();
+    run_test_common(args.docker.as_deref(), args.dry_run, only_current, args.upto.as_deref(), cli_cc_home, no_color)
 }
 
 /// Submit (test and advance on pass)
