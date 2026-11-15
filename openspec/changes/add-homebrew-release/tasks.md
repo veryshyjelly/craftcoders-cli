@@ -19,6 +19,8 @@ Groups 1 and 2 can proceed independently using design.md's exact four-archive/ch
 
 ## 3. Root integration and pre-publication verification
 
+- [x] 3.0 Merge upstream commit `7a721fa` while preserving both histories and the owner-approved current-stage default for `test`; retain submit/explicit-upto prefix execution and local hardening guards, resolve source/help/README/test expectations coherently, and verify all five incoming stage-selection tests plus affected workflow regressions before re-running task 3.2.
+
 - [x] 3.1 Review the tap patch, obtain required sandbox permission to apply its concrete sibling writes, apply it, and rerun the full tap test suite and workflow checks in the real repository; verify only the agreed files changed and no existing package formula changed.
 - [x] 3.2 Run CLI packaging tests, `cargo check --locked`, `cargo test --locked`, appropriate formatting/lint checks, `git diff --check`, and `openspec validate --all --strict --no-interactive`; obtain independent review, fix blocking findings, rerun affected checks, and commit verified setup milestones separately in CLI and tap.
 

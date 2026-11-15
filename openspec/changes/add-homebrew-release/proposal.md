@@ -12,6 +12,7 @@ CraftCoders has no published release artifacts or Homebrew installation path, wh
 - Skip cleanly before the first public release; do not create a placeholder formula or invented checksums.
 - Correct package repository metadata, include the already-declared MIT license text, and document releases and installation availability.
 - Test packaging and updater failure cases with local fixtures before applying tap changes.
+- Integrate upstream commit `7a721fa`, preserving its owner-approved current-stage default for `test` while retaining prefix execution for `submit` and explicit `test --upto`.
 
 ## Capabilities
 
@@ -22,8 +23,8 @@ CraftCoders has no published release artifacts or Homebrew installation path, wh
 
 ### Modified Capabilities
 
-None. Existing local command behavior, workspace formats, course caches, and tester contracts remain unchanged.
+- `tester-execution`: Preserve the owner-approved upstream current-stage default for `test`; submission and explicit prefix selection remain supported. Workspace formats, course caches, and the official tester environment remain unchanged.
 
 ## Impact
 
-CLI changes are limited to release/CI scripts, workflow definitions, metadata/license, tests, and documentation. Tap changes are limited to a new updater/tests, the existing update workflow, documentation, and a generated formula only after a real release. The tap keeps its own repository token; no cross-repository PAT, website dependency, or existing-package behavior change is required. The owner has authorized publishing v0.1.0 after verification, including necessary CLI/tap pushes and tagging; release execution remains gated on passing checks.
+CLI changes cover release/CI scripts, workflow definitions, metadata/license, tests, documentation, and the necessary owner-approved integration of upstream stage-selection behavior in CLI argument/help and command orchestration. Tap changes are limited to a new updater/tests, the existing update workflow, documentation, and a generated formula only after a real release. The tap keeps its own repository token; no cross-repository PAT, website dependency, or existing-package behavior change is required. The owner has authorized publishing v0.1.0 after verification, including necessary CLI/tap pushes and tagging; release execution remains gated on passing checks.

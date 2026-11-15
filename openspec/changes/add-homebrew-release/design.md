@@ -6,6 +6,8 @@ The CLI package is `craftcoders` version `0.1.0`, edition 2024, with MIT declare
 
 The clean sibling repository `../homebrew-tap` uses its own contents-write token in `.github/workflows/update.yml`, running hourly and manually. `scripts/update.py` handles Eitri; `scripts/update_vocabulary_studio.py` supplies a useful stable-tag, first-release-404, download-verification pattern. Its current tests mock downloads with fixtures. Existing updater writes are not atomic; this change adds atomic replacement only for the new CraftCoders updater rather than altering other packages. No AGENTS.md was found in either repository or their ancestor directories; the conversation's repository routing instructions apply.
 
+Upstream integration discovered during the authorized release push: remote commit `7a721fa` changes default `test` selection to the current stage and adds five stage-selection tests. The owner explicitly chose to preserve that behavior while keeping `submit` and explicit `test --upto` prefix execution. Merge both histories rather than discarding the upstream commit.
+
 ## Goals / Non-Goals
 
 **Goals:** Establish a shared immutable asset naming contract so CLI and tap owners can work independently; validate locally without real publishing; preserve existing tap packages and local runtime behavior.
@@ -13,6 +15,11 @@ The clean sibling repository `../homebrew-tap` uses its own contents-write token
 **Non-Goals:** No crates.io publishing, package version bump, automatic tag creation, cross-repository dispatch/token, code-signing/notarization pipeline, source-build formula fallback, unsupported platform claims, or unrelated tap refactoring. The owner explicitly authorized publishing version 0.1.0 after verification; root performs the release actions after the gates pass.
 
 ## Decisions
+
+### Preserve owner-approved upstream stage selection
+
+Integrate commit `7a721fa` and its five stage-selection tests before publishing. Default `test` selects only the current enabled stage; `submit` keeps the prefix through its current or explicit target; explicit `test --upto` selects a prefix unless `--only-current` restricts it. Retain explicit retests after completion, validation before compilation, dry-run safety, and target-only submission persistence from local hardening. Update merged help/docs and regression expectations coherently, keeping both histories and preserving the upstream intent. This bounded integration is required to release the owner-approved source, not an additional feature or version bump. Root coordinates the source owner for `src/cli.rs`, `src/commands.rs`, README and stage-selection/workflow tests, then reruns verification; the release/tap artifact contract is unchanged.
+
 
 ### Native build matrix and shared artifact contract
 
@@ -51,7 +58,7 @@ Extend the existing tap workflow by running the new updater, syntax-checking the
 
 ### File ownership and sandbox-safe tap integration
 
-**CLI release implementer:** `.github/workflows/release.yml`, `scripts/release.py`, `scripts/test_release.py`, `Cargo.toml` repository metadata only, new `LICENSE`, and CLI `README.md`. The helper exposes packaging/validation as locally testable operations; its internal CLI can be chosen by the implementer, but filenames/contents and version gates above are fixed. No src/ changes are needed. Use MIT text with copyright year 2026 and existing author Ayush Biswas; no additional ownership claim is inferred.
+**CLI release implementer:** `.github/workflows/release.yml`, `scripts/release.py`, `scripts/test_release.py`, `Cargo.toml` repository metadata only, new `LICENSE`, and CLI `README.md`. The helper exposes packaging/validation as locally testable operations; its internal CLI can be chosen by the implementer, but filenames/contents and version gates above are fixed. No src/ changes are needed for packaging itself; the separately assigned upstream integration described above owns necessary stage-selection conflict resolution. Use MIT text with copyright year 2026 and existing author Ayush Biswas; no additional ownership claim is inferred.
 
 **Tap implementer:** Work in a temporary copy of the sibling tap, editing only `scripts/update_craftcoders.py`, `scripts/test_update_craftcoders.py`, `.github/workflows/update.yml`, and tap `README.md`. Deliver an exact patch and passing tests to root. Do not edit existing updater/test scripts, real formulae, or the actual sibling directory. Root reviews the patch, requests the required sandbox escalation for the concrete sibling writes, applies it, and reruns tests in the real tap. The generated path `Formula/craftcoders.rb` is not part of the initial patch; it is added only after the authorized real release is available and verified.
 
