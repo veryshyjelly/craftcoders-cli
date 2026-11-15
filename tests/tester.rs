@@ -73,6 +73,16 @@ impl Fixture {
             "#!/bin/sh\necho native-go >> \"$TOOLS_CAPTURE\"\nexit \"${BUILD_RC:-0}\"\n",
         );
     }
+    fn artifact_go(&self) {
+        executable(
+            &self.tools.join("go"),
+            r#"#!/bin/sh
+printf '%s\n' "$PWD" "$@" > "$TOOLS_CAPTURE"
+[ "$1" = build ] && [ "$2" = -o ] || exit 90
+printf 'fresh tester artifact\n' > "$3"
+"#,
+        );
+    }
     fn command(&self, args: &[&str], nested: bool) -> Command {
         let mut c = Command::new(env!("CARGO_BIN_EXE_craftcoders"));
         c.args(args)
@@ -295,4 +305,74 @@ fn incompatible_host_marker_rejects_launch() {
     assert!(!o.status.success());
     assert!(String::from_utf8_lossy(&o.stderr).contains("update --build-target host"));
     assert!(!f.root.join("capture").exists());
+}
+
+#[test]
+fn forced_update_replaces_existing_tester_artifact() {
+    let f = Fixture::new();
+    f.artifact_go();
+    let binary = f.course.join("bin/tester");
+    fs::write(&binary, "stale tester artifact\n").unwrap();
+    success(&f.run(&["update", "--build-target", "host"]));
+    assert_eq!(
+        fs::read_to_string(binary).unwrap(),
+        "fresh tester artifact\n"
+    );
+    assert_eq!(
+        fs::read_to_string(f.course.join("bin/OS")).unwrap(),
+        std::env::consts::OS
+    );
+}
+
+#[test]
+fn fresh_host_build_creates_artifact_from_cmd_tester_package() {
+    let f = Fixture::new();
+    f.artifact_go();
+    fs::create_dir_all(f.course.join("tester/cmd/tester")).unwrap();
+    let binary = f.course.join("bin/tester");
+    fs::remove_file(&binary).unwrap();
+    fs::remove_file(f.course.join("bin/OS")).unwrap();
+    let destination = f.root.join("fresh-project");
+    success(&f.run(&["init", "demo", destination.to_str().unwrap()]));
+    assert_eq!(
+        fs::read_to_string(&binary).unwrap(),
+        "fresh tester artifact\n"
+    );
+    assert_eq!(
+        fs::read_to_string(f.course.join("bin/OS")).unwrap(),
+        std::env::consts::OS
+    );
+    let calls = f.calls();
+    let lines: Vec<_> = calls.lines().collect();
+    assert_eq!(
+        lines[0],
+        f.course
+            .join("tester")
+            .canonicalize()
+            .unwrap()
+            .to_str()
+            .unwrap()
+    );
+    assert_eq!(lines[1], "build");
+    assert_eq!(lines[2], "-o");
+    assert!(Path::new(lines[3]).is_absolute());
+    assert_eq!(
+        Path::new(lines[3]).canonicalize().unwrap(),
+        binary.canonicalize().unwrap()
+    );
+    assert_eq!(lines[4], "./cmd/tester");
+}
+
+#[test]
+fn successful_builder_without_output_fails_without_marker() {
+    let f = Fixture::new();
+    f.go();
+    fs::remove_file(f.course.join("bin/tester")).unwrap();
+    fs::remove_file(f.course.join("bin/OS")).unwrap();
+    let o = f.run(&["update", "--build-target", "host"]);
+    assert!(!o.status.success());
+    assert!(f.calls().contains("native-go"));
+    assert!(String::from_utf8_lossy(&o.stderr).contains("tester binary not found"));
+    assert!(!f.course.join("bin/OS").exists());
+    assert!(!String::from_utf8_lossy(&o.stdout).contains("built successfully"));
 }
