@@ -1,343 +1,114 @@
 # CraftCoders Local CLI
 
-A high-performance Rust implementation of a local CodeCrafters-compatible CLI tool for running coding challenges offline. This tool enables you to practice programming challenges like Build Your Own Redis, Git, SQLite, and more entirely on your local machine without requiring internet access or the CodeCrafters website.
+Practice CodeCrafters challenges locally using cached course instructions and the official testers. The local show/test/submit workflow does not require the hosted website. Initial downloads, updates, and dependency builds can require network access.
 
-## ✨ Features
+## Install
 
-- **Blazing Fast**: Built in Rust for minimal startup time and efficient execution
-- **Complete Offline Workflow**: Run challenges entirely offline with zero external dependencies
-- **Smart Progress Tracking**: Automatically tracks completion status across all stages
-- **Official Tester Integration**: Runs the actual challenge testers locally against your code
-- **Extension System**: Seamlessly add community-created extensions to your challenges
-- **Multi-Language Support**: Works with any programming language via your `your_program.sh` script
-- **Docker Integration**: Optional containerized testing for isolated environments
-- **Rich Terminal Output**: Colorized stage headers, progress indicators, and clear test results
-- **Extensible Design**: Modular architecture making it easy to add new features
+Build with a Rust toolchain supporting edition 2024:
 
-## 🚀 Installation
-
-### Prerequisites
-- Rust 1.65+ (for building from source)
-- Go 1.19+ (for building testers) OR Docker (for containerized testing)
-- Git (for cloning challenge repositories)
-
-### From Source (Recommended)
-```bash
-# Clone the repository
-git clone https://github.com/veryshyjelly/craftcoders-cli.git
-cd craftcoders-cli
-
-# Build and install
+```sh
 cargo install --path .
-
-# Verify installation
 craftcoders --version
-# CraftCoders Local CLI v0.1.0
 ```
 
-## 🚦 Quick Start
+Git downloads course and tester repositories. Building testers requires Go, or Docker when Go is unavailable. Individual testers and your implementation may need additional runtime dependencies; consult the tester repository and run `craftcoders doctor`.
 
-### 1. Initialize a Challenge
-```bash
-# Initialize a Redis challenge in a directory named 'my-redis'
+## Start a course
+
+```sh
+craftcoders list
 craftcoders init redis my-redis
-craftcoders my-redis
-```
-
-### 2. View Stage Instructions
-```bash
-# Show current stage instructions
+cd my-redis
 craftcoders show
-
-# Show instructions for a specific stage
-craftcoders show 3
-
-# Show instructions without ANSI colors (for piping to files)
-craftcoders show --no-color
 ```
 
-### 3. Implement Your Solution
-Edit `your_program.sh` to launch your solution:
-```bash
-#!/usr/bin/env sh
-# Example for a Python solution
-python3 redis_server.py "$@"
+Initialization creates `.craftcoders.json`, `codecrafters.yml`, `compile.sh`, and `your_program.sh`. Edit the two shell scripts to build and launch your implementation. Their initial placeholders fail until configured. Any implementation language can be used through these scripts.
 
-# Example for a Rust solution
-./target/debug/redis_impl "$@"
+An existing nonempty destination is rejected. Use `init redis my-redis --no-build` to skip building the tester, or `--tester-repo NAME` to override the tester repository name.
 
-# Example for a JavaScript solution
-node redis_impl.js "$@"
-```
+## Instructions and progress
 
-Make sure your script is executable:
-```bash
-chmod +x your_program.sh
-```
-
-### 4. Test Your Progress
-```bash
-# Test current stage and all previous stages
-craftcoders test
-
-# Test and advance to next stage if successful
-craftcoders submit
-
-# Run with Docker (optional)
-craftcoders test --docker redis:7-alpine
-```
-
-### 5. Track Your Progress
-```bash
-# Show detailed progress
+```sh
 craftcoders status
-
-# Show just the current stage number
-craftcoders status --current-only
+craftcoders show 3
+craftcoders show stage-slug
+craftcoders show --raw
+craftcoders show --json
+craftcoders open
 ```
 
-## 🏗️ How It Works
+`show` defaults to the first unfinished enabled stage. Stage selectors accept a one-based number or slug. Raw output contains resolved Markdown; JSON includes stage metadata and resolved Markdown. `open [STAGE]` opens the stage instructions using `$EDITOR`.
 
-### Architecture Overview
-```
-┌─────────────────────┐    ┌──────────────────────┐    ┌────────────────────┐
-│ CraftCoders Local   │    │ Challenge Repository │    │ Tester Binary      │
-│        CLI          │◄──▶│ (course content +    │◄──▶│ (Go/Rust binary)   │
-│                     │    │  test cases)         │    │                    │
-└─────────────────────┘    └──────────────────────┘    └────────────────────┘
-          │                         ▲                         │
-          │                         │                         │
-          ▼                         │                         │
-┌─────────────────────┐             │                         │
-│  Your Solution      │             │                         │
-│ (your_program.sh)   │─────────────┘                         │
-│                     │                                       │
-└─────────────────────┘                                       │
-          │                                                   │
-          ▼                                                   │
-┌─────────────────────┐                             ┌──────────────────┐
-│ Test Execution      │◄────────────────────────────┤ Test Results     │
-│ (in isolated env)   │                             │ (pass/fail, logs)│
-└─────────────────────┘                             └──────────────────┘
+Progress is stored in the workspace's `.craftcoders.json`. Workspace commands find that file by searching upward, so they can run from nested directories.
+
+## Test and submit
+
+```sh
+craftcoders test
+craftcoders test --only-current
+craftcoders test --upto 3
+craftcoders submit
+craftcoders submit --upto 3
+craftcoders test --dry-run
+craftcoders submit --dry-run
 ```
 
-### Progress Tracking System
-- Stores completion status in `~/.craftcoders/progress.json`
-- Automatically detects completed stages when running `craftcoders test`
-- Prevents re-testing completed stages unless explicitly requested
-- Supports resuming progress after interruptions
+By default, testing runs the prefix through the current stage. `--upto STAGE` selects another target; `test --only-current` tests only the selected stage. Both preview commands print the planned invocation and cases without compiling, launching the tester, or saving progress.
 
-## 📖 Command Reference
+A passing submission records only its selected target, even when the tester checks the entire prefix. Earlier unfinished stages remain unfinished. Guidance points to the first unfinished enabled stage. Failed tests and submissions preserve progress and return the tester's exit code.
 
-### Initialization & Setup
-| Command                                    | Description                                 |
-| ------------------------------------------ | ------------------------------------------- |
-| `craftcoders init <challenge> <directory>` | Initialize a new challenge workspace        |
-| `craftcoders update`                       | Update challenge content and rebuild tester |
-| `craftcoders doctor`                       | Check environment for common issues         |
+After all enabled stages are complete, an untargeted test or submission reports completion. Use an explicit target such as `craftcoders test --upto 2` to retest without changing saved progress, or enable an extension.
 
-### Core Workflow
-| Command                                 | Description                                         |
-| --------------------------------------- | --------------------------------------------------- |
-| `craftcoders show [stage] [--no-color]` | Display instructions for current or specified stage |
-| `craftcoders test [--docker <image>]`   | Run tests for all completed stages + current stage  |
-| `craftcoders submit [--docker <image>]` | Run tests and advance to next stage on craftcoders  |
-| `craftcoders status [--current-only]`   | Show progress through the challenge                 |
+Both test and submit accept `--docker IMAGE` to run the tester in a container with the workspace mounted at `/app`. Build a Linux tester first when needed:
 
-### Extension Management
-| Command                                        | Description                           |
-| ---------------------------------------------- | ------------------------------------- |
-| `craftcoders ext add <name> [--url <git-url>]` | Add an extension from Git repository  |
-| `craftcoders ext list`                         | List installed extensions             |
-| `craftcoders ext remove <name>`                | Remove an installed extension         |
-| `craftcoders ext update <name>`                | Update an extension to latest version |
-
-### Utility Commands
-| Command                                         | Description                            |
-| ----------------------------------------------- | -------------------------------------- |
-| `craftcoders completion <shell>`                         | Generate shell completion script       |
-| `craftcoders config [--get <key>] [--set <key>=<value>]` | Manage CLI configuration               |
-| `craftcoders cleanup`                                    | Remove cached data and temporary files |
-
-## 🛠️ Configuration
-
-### Global Settings (`~/.craftcoders/config.toml`)
-```toml
-# Default tester build method when Go is unavailable
-tester_builder = "docker"  # or "go"
-
-# Default Docker image for tester builds
-default_tester_image = "golang:1.19-alpine"
-
-# Enable/disable color output
-color = true
-
-# Progress tracking settings
-auto_save_progress = true
-progress_file = "/home/user/.craftcoders/progress.json"
+```sh
+craftcoders update --build-target linux
+craftcoders test --docker YOUR_RUNTIME_IMAGE
 ```
 
-### Workspace State (`./.craftcoders.json`)
-```json
-{
-  "course": "redis",
-  "extensions": [],
-  "completed": [
-    "jm1"
-  ]
-}
-```
+The image must provide the tester's runtime dependencies and those of your solution. Host execution inherits the environment and runs from the workspace root. The tester receives the official `CODECRAFTERS_REPOSITORY_DIR`, `CODECRAFTERS_SUBMISSION_DIR`, and `CODECRAFTERS_TEST_CASES_JSON` variables.
 
-## 💡 Advanced Usage
+## Extensions and updates
 
-### Custom Test Environments
-```bash
-# Use a specific Docker image for testing
-craftcoders test --docker my-custom-redis-tester:latest
-
-# Build tester with specific Go flags
-CC_TESTER_BUILD_FLAGS="-ldflags='-s -w'" craftcoders update
-
-# Skip tester rebuild (use existing binary)
-craftcoders update --skip-tester-build
-```
-
-### Working with Extensions
-```bash
-# Add a community extension
-craftcoders ext add redis-aof https://github.com/username/redis-aof-extension
-
-# List all active extensions
+```sh
 craftcoders ext list
-
-# Update all extensions
-craftcoders ext update --all
-
-# Remove an extension
-craftcoders ext remove redis-aof
+craftcoders ext add EXTENSION_SLUG
+craftcoders ext remove EXTENSION_SLUG
+craftcoders update
+craftcoders update --build-target host
+craftcoders update --build-target linux
 ```
 
-### Automation & Scripting
-```bash
-# Check if current stage is complete in shell scripts
-if craftcoders status --current-only | grep -q "done"; then
-  echo "Stage is complete!"
-fi
+Extensions come from the course definition. Enabling one appends its stages after the base stages in saved extension order. Repeated adds are idempotent. Removing an extension retains its completed stage slugs; re-enabling it restores that progress.
 
-# Get just the stage number for scripting
-craftcoders status --current-only --format=json | jq '.current_stage'
+Update pulls the course and tester repositories, then forces a tester rebuild. With no build target, it uses Go on the host when available and otherwise Docker for Linux. `host` requires Go; `linux` explicitly builds through Docker. The cache marker identifies the successfully built target. Updates can require network access.
 
-# Run tests and capture JUnit-compatible output
-craftcoders test --format=junit > test-results.xml
+## Cache and output options
+
+The default cache is `~/.craftcoders`. Set `CC_HOME` or pass the global `--cc-home PATH` option; the flag takes precedence. Relative paths resolve against the invocation directory, including when invoked from a workspace subdirectory. Cached data lives under `courses/COURSE/{definition,tester,bin}`; the tester binary and target marker are in `bin`.
+
+```sh
+craftcoders --cc-home ./local-cache list
+craftcoders --no-color status
+craftcoders --verbose doctor
+craftcoders --help
+craftcoders update --help
 ```
 
-## 🔧 Development
+`--no-color` or a nonempty `NO_COLOR` suppresses ANSI styling in CLI-owned stdout and stderr, including help, errors, Markdown rendering, and previews. Inherited child output from Git, builders, compilation, and testers follows those programs' own settings. `--verbose` (`-v`) enables debug logging.
 
-### Building from Source
-```bash
-# Debug build (with symbols)
-cargo build
+Once course content, a compatible tester, and runtime dependencies are cached, instructions and local test/submission work can run offline. There is no separate offline flag or global progress/configuration file.
 
-# Release build (optimized)
-cargo build --release
+## Development and specifications
 
-# Cross-compile for Linux (from macOS/Windows)
-cargo build --release --target x86_64-unknown-linux-gnu
-
-# Create a distributable tarball
-cargo package
-```
-
-### Testing
-```bash
-# Run unit tests
+```sh
+cargo check
 cargo test
-
-# Run tests with coverage
-cargo tarpaulin --out Html
-
-# Run specific test suite
-cargo test --test integration_test
-
-# Run tests in release mode (closer to production behavior)
-cargo test --release
+cargo clippy --all-targets -- -D warnings
 ```
 
-### Adding New Features
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/awesome-feature`
-3. Make your changes following the existing code style
-4. Add tests for new functionality
-5. Ensure all tests pass: `cargo test --release`
-6. Submit a Pull Request with a clear description
+Integration tests use temporary workspaces, isolated caches, and fake external tools. Source modules are under `src/`; behavioral tests are under `tests/`.
 
-### Code Structure
-```
-src/
-├── main.rs          # CLI entry point and command dispatch
-├── render.rs        # Template resolution & markdown rendering
-├── course.rs        # Course definition parsing & handling
-├── tester.rs        # Tester management & execution logic
-├── progress.rs      # Progress tracking & persistence
-├── utils.rs         # Helper functions & constants
-├── commands/        # Individual command implementations
-│   ├── init.rs
-│   ├── show.rs
-│   ├── test.rs
-│   ├── submit.rs
-│   └── status.rs
-└── extensions/      # Extension system implementation
-```
+See [the OpenSpec workflow](openspec/README.md) and [capability specifications](openspec/specs/) for the baseline and change process. [The active workflow-hardening change](openspec/changes/harden-local-cli-workflows/) records revised contracts pending explicit specification sync or archive.
 
-## 🐛 Troubleshooting
-
-### Common Issues
-
-| Problem                              | Solution                                                     |
-| ------------------------------------ | ---------------------------------------------------------    |
-| `command not found: craftcoders`     | Ensure `~/.cargo/bin` is in your PATH                        |
-| Testers fail to build                | Install Go 1.19+ or ensure Docker is running                 |
-| Permission denied on your_program.sh | Run `chmod +x your_program.sh`                               |
-| Docker permission errors             | Add user to docker group: `sudo usermod -aG docker $USER`    |
-| Stuck on "Downloading test cases..." | Check internet connectivity or use `--offline` flag          |
-
-### Debugging
-```bash
-# Enable verbose logging
-RUST_LOG=debug craftcoders test
-
-# Log to file
-RUST_LOG=info craftcoders test 2> craftcoders.log
-```
-
-## 📚 Related Projects
-
-- [CodeCrafters Official](https://codecrafters.io/) - The original platform
-- [Build Your Own Redis](https://github.com/codecrafters-io/build-your-own-redis) - Redis challenge repo
-- [Build Your Own Git](https://github.com/codecrafters-io/build-your-own-git) - Git challenge repo
-- [Tester Utils](https://github.com/codecrafters-io/tester-utils) - Shared tester library
-
-## 🙏 Acknowledgments
-
-- Thanks to the [CodeCrafters team](https://codecrafters.io/) for creating such an excellent learning platform
-- The Rust community for providing amazing tools and libraries
-- Open-source contributors who maintain the challenge and tester repositories
-
-## 📄 License
-
-This project is licensed under the [MIT License](LICENSE).
-
-## 📢 Support & Feedback
-
-If you enjoy using CraftCoders Local CLI, please consider:
-
-1. ⭐ Starring the repository on GitHub
-2. � Reporting bugs or suggesting features via [Issues](https://github.com/veryshyjelly/craftcoders-cli/issues)
-3. 💬 Sharing your experience on social media with #CraftCodersLocal
-4. 🤝 Contributing code, documentation, or translations
-
-Happy coding, and may your tests always pass! 🎉
-
----
-
-*Built with ❤️ using Rust. Not affiliated with or endorsed by CodeCrafters.io.*
+Licensed under MIT. Not affiliated with or endorsed by CodeCrafters.io.

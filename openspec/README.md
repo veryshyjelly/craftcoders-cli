@@ -29,15 +29,11 @@ extension repository management, `cleanup`, `completion`, `--offline`,
 `status --current-only`, or JUnit output. These need proposals before being
 treated as supported behavior.
 
-Current implementation caveats to consider when planning changes:
-
-- `submit --dry-run` still runs `compile.sh` if present, although it skips the
-  tester and does not save completion.
-- `submit --upto` saves only the selected target slug, even though it tests the
-  whole prefix. Earlier unfinished stages remain unfinished.
-- `update` pulls both repositories and calls the tester builder, but the builder
-  can reuse an existing binary when its OS marker matches. It does not guarantee
-  a rebuild after a source update.
+The active [workflow-hardening change](changes/harden-local-cli-workflows/)
+tracks revised contracts before an explicit sync or archive: both preview
+commands skip compilation, updates force tester rebuilds with explicit target
+selection, and CLI-owned output honors global color suppression. Submission
+still records only its selected target; earlier unfinished stages remain current.
 
 ## Create and implement a change
 
@@ -76,8 +72,8 @@ openspec validate --all --strict --no-interactive
 ```
 
 For Rust changes, relevant checks include `cargo fmt --check`, `cargo check`, and
-`cargo test`. The repository currently has no automated test cases; add focused
-coverage when introducing behavior that needs it. External-process checks should
+`cargo test`. The repository includes focused unit and integration tests; add coverage
+when introducing behavior that needs it. External-process checks should
 use fixtures or fake executables and an isolated `CC_HOME` where practical.
 
 After implementation and verification, archive the change and sync its deltas:
