@@ -69,7 +69,7 @@ craftcoders test --dry-run
 craftcoders submit --dry-run
 ```
 
-By default, testing runs the prefix through the current stage. `--upto STAGE` selects another target; `test --only-current` tests only the selected stage. Both preview commands print the planned invocation and cases without compiling, launching the tester, or saving progress.
+By default, `test` runs only the current stage. `test --upto STAGE` tests the prefix through the selected target; add `--only-current` to test only that target. `submit` tests the prefix through the current stage, or through the target selected by `--upto STAGE`. Both preview commands print the planned invocation and cases without compiling, launching the tester, or saving progress.
 
 A passing submission records only its selected target, even when the tester checks the entire prefix. Earlier unfinished stages remain unfinished. Guidance points to the first unfinished enabled stage. Failed tests and submissions preserve progress and return the tester's exit code.
 

@@ -40,7 +40,7 @@ pub enum Commands {
     /// Show instructions for a stage (default: current stage)
     Show(ShowArgs),
 
-    /// Run tests for previous stages + current stage
+    /// Run tests for the current stage (use --upto to include previous stages)
     Test(TestArgs),
 
     /// Run tests and advance to next stage on pass
@@ -103,11 +103,11 @@ pub struct TestArgs {
     #[arg(long)]
     pub dry_run: bool,
 
-    /// Run only the current stage (skip previous stages)
+    /// Run only the selected stage (default unless --upto is given)
     #[arg(long)]
     pub only_current: bool,
 
-    /// Run up to a specific stage (number or slug)
+    /// Include previous stages through this stage (number or slug)
     #[arg(long, value_name = "STAGE")]
     pub upto: Option<String>,
 }

@@ -269,7 +269,8 @@ fn execute_test(prepared: &PreparedTest, docker_image: Option<&str>, dry_run: bo
 
 /// Run tests, permitting explicit retests even after completion.
 pub fn cmd_test(args: &TestArgs, cli_cc_home: Option<&Path>, _no_color: bool) -> Result<i32> {
-    let prepared = prepare_test(args.upto.as_deref(), args.only_current, false, cli_cc_home)?;
+    let only_current = args.only_current || args.upto.is_none();
+    let prepared = prepare_test(args.upto.as_deref(), only_current, false, cli_cc_home)?;
     execute_test(&prepared, args.docker.as_deref(), args.dry_run)
 }
 
