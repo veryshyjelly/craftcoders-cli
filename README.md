@@ -4,9 +4,8 @@ Practice CodeCrafters challenges locally using cached course instructions and th
 
 ## Install
 
-Homebrew release automation is being prepared. Before the first verified public
-release and generated tap formula are available, use the source installation
-below. After publication and the tap's next successful hourly or manual update:
+Install the verified [v0.1.0 release](https://github.com/veryshyjelly/craftcoders-cli/releases/tag/v0.1.0)
+from the Homebrew tap:
 
 ```sh
 brew install veryshyjelly/tap/craftcoders
@@ -180,3 +179,5 @@ sources. Installation of the CLI does not install challenge tester dependencies;
 Go or Docker and course-specific runtimes remain necessary when applicable.
 
 Licensed under [MIT](LICENSE). Not affiliated with or endorsed by CodeCrafters.io.
+
+The [v0.1.0 release contract and verification record](openspec/changes/archive/2026-11-15-add-homebrew-release/tasks.md) document the native build gates, checksum verification, and Homebrew installation test.

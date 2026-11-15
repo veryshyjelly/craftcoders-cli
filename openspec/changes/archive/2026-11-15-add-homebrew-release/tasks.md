@@ -26,7 +26,44 @@ Groups 1 and 2 can proceed independently using design.md's exact four-archive/ch
 
 ## 4. Root authorized v0.1.0 release and Homebrew verification
 
-- [ ] 4.1 Push verified CLI and tap setup commits, create/push the matching v0.1.0 tag, and observe the release workflow; verify all four native test/build/version jobs and aggregate integrity checks pass before publication. On failure, fix the cause and recover explicitly without overwriting an existing published release.
-- [ ] 4.2 Verify the published v0.1.0 release is stable and contains the four exact archives plus checksums.txt; download and hash all archives, inspect required archive files/executable modes, and confirm recorded runner smoke evidence for all four platforms.
-- [ ] 4.3 Run or trigger the tap's verified updater after release availability, verify the real Formula/craftcoders.rb contains only actual release digests/URLs, run tap tests/Ruby/Homebrew checks, and commit/push the generated formula through the established updater workflow or an equivalent verified local update.
-- [ ] 4.4 Install/test the real formula on the available native Homebrew platform and verify `craftcoders --version` reports 0.1.0; report tested platform and any remaining remote-platform installation limitations accurately. Confirm public release/tap links and repository status before declaring completion.
+- [x] 4.1 Push verified CLI and tap setup commits, create/push the matching v0.1.0 tag, and observe the release workflow; verify all four native test/build/version jobs and aggregate integrity checks pass before publication. On failure, fix the cause and recover explicitly without overwriting an existing published release.
+- [x] 4.2 Verify the published v0.1.0 release is stable and contains the four exact archives plus checksums.txt; download and hash all archives, inspect required archive files/executable modes, and confirm recorded runner smoke evidence for all four platforms.
+- [x] 4.3 Run or trigger the tap's verified updater after release availability, verify the real Formula/craftcoders.rb contains only actual release digests/URLs, run tap tests/Ruby/Homebrew checks, and commit/push the generated formula through the established updater workflow or an equivalent verified local update.
+- [x] 4.4 Install/test the real formula on the available native Homebrew platform and verify `craftcoders --version` reports 0.1.0; report tested platform and any remaining remote-platform installation limitations accurately. Confirm public release/tap links and repository status before declaring completion.
+
+## Release and verification evidence
+
+- Published stable release: https://github.com/veryshyjelly/craftcoders-cli/releases/tag/v0.1.0
+- Annotated tag `v0.1.0` points to `4127a1a03343190cbbd0eb21c4694490428ce0e8`.
+- Untagged native validation: https://github.com/veryshyjelly/craftcoders-cli/actions/runs/43716484618
+- Tagged native builds, integrity gate, and publication: https://github.com/veryshyjelly/craftcoders-cli/actions/runs/43718343799
+- Verified tap generation: https://github.com/veryshyjelly/homebrew-tap/actions/runs/43722948580
+- Final tap workflow, including audit fixes: https://github.com/veryshyjelly/homebrew-tap/actions/runs/43733584168
+
+All four native jobs passed their tests, release build, and version/package smoke
+checks. The integrity job verified the complete four-archive set and manifest
+before the draft was published. Root separately downloaded the five public
+assets and validated SHA-256 digests, exact archive root entries, and executable
+modes. The actual formula's four URLs and digests match that manifest.
+
+Local verification passed: 39 Rust tests, 21 release-helper tests, 33 tap tests,
+Rust formatting/check/strict Clippy, both Actions workflows through Actionlint,
+Ruby syntax, real formula style, and `brew audit --strict --online`. Homebrew
+installed the ARM64 macOS release and `brew test` passed; the installed Mach-O
+ARM64 binary reports `craftcoders 0.1.0`. Homebrew installation was tested only
+on this native Mac; Linux and Intel binaries have native hosted smoke evidence,
+not a claim of local Homebrew installation on those systems.
+
+Independent review caught and resolved draft lookup through the published-tag
+REST endpoint before any release tag was pushed. Publication now detects drafts
+through authenticated pagination, resolves new drafts through the draft-aware
+CLI lookup, and verifies remote bytes before publishing. Real Homebrew checks
+also drove the version-inference and readable atomic-file fixes; regressions
+cover new/replaced/identical formula permissions and chmod failure preservation.
+No published release artifact was overwritten to make those tap metadata fixes.
+
+Both source repository origins use SSH. Existing history was preserved, including
+upstream `7a721fa` and its five tests, through merge `79f53b8`; the owner explicitly
+selected its current-stage default. Setup, planning, implementation, tests,
+documentation, release automation, and tap fixes were committed separately.
+Local `.serena` metadata was intentionally excluded from commits.
