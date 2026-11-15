@@ -4,34 +4,51 @@ use anyhow::{Context, Result};
 use owo_colors::OwoColorize;
 use std::env;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use which::which;
 
-use crate::cli::{ExtAction, InitArgs, OpenArgs, ShowArgs, SubmitArgs, TestArgs};
-use crate::config::{cc_home, find_project_root, CoursePaths};
-use crate::course::{current_stage_index, find_stage, list_extensions, load_definition, ordered_stages, read_stage_markdown};
+use crate::cli::{
+    ExtAction, InitArgs, OpenArgs, ShowArgs, SubmitArgs, TestArgs, UpdateArgs, UpdateBuildTarget,
+};
+use crate::config::{CoursePaths, cc_home, find_project_root};
+use crate::course::{
+    current_stage_index, find_stage, list_extensions, load_definition, ordered_stages,
+    read_stage_markdown,
+};
 use crate::git_ops::{ensure_repos, update_repos};
-use crate::project::{init_project, load_project, save_project};
-use crate::render::{render_markdown, render_plain, render_progress_item, render_stage_header, resolve_templates};
-use crate::tester::{build_tester, build_test_cases, run_tester};
+use crate::project::{ProjectConfig, init_project, load_project, save_project};
+use crate::render::{
+    render_markdown, render_plain, render_progress_item, render_stage_header, resolve_templates,
+};
+use crate::tester::{BuildTarget, TestCase, build_test_cases, build_tester, run_tester};
 
 /// Initialize a new project
 pub fn cmd_init(args: &InitArgs, cli_cc_home: Option<&Path>, _no_color: bool) -> Result<()> {
-    let cc_home_dir = cc_home(cli_cc_home)?;
-    let (def_dir, _tester_dir) = ensure_repos(&cc_home_dir, &args.course, args.tester_repo.as_deref())?;
-
-    let course_paths = CoursePaths::new(&cc_home_dir, &args.course);
-
-    if !args.no_build {
-        build_tester(&course_paths, &args.course, which("go").is_err())?;
+    let target = args
+        .dir
+        .clone()
+        .unwrap_or_else(|| PathBuf::from(format!("my-{}", args.course)));
+    let target = if target.is_absolute() {
+        target
+    } else {
+        env::current_dir()?.join(target)
+    };
+    if target.exists() {
+        if !target.is_dir() {
+            anyhow::bail!("{} already exists and is not a directory", target.display());
+        }
+        if target.read_dir()?.next().is_some() {
+            anyhow::bail!("{} already exists and is not empty", target.display());
+        }
     }
 
-    let target = args.dir.clone().unwrap_or_else(|| Path::new(&format!("my-{}", args.course)).to_path_buf());
-    let target = target.canonicalize().unwrap_or_else(|_| target.to_path_buf());
-
-    if target.exists() && target.read_dir()?.next().is_some() {
-        anyhow::bail!("{} already exists and is not empty", target.display());
+    let cc_home_dir = cc_home(cli_cc_home)?;
+    let (def_dir, _tester_dir) =
+        ensure_repos(&cc_home_dir, &args.course, args.tester_repo.as_deref())?;
+    let course_paths = CoursePaths::new(&cc_home_dir, &args.course);
+    if !args.no_build {
+        build_tester(&course_paths, BuildTarget::Auto, false)?;
     }
 
     let def = load_definition(&def_dir)?;
@@ -40,7 +57,11 @@ pub fn cmd_init(args: &InitArgs, cli_cc_home: Option<&Path>, _no_color: bool) ->
     let base_stages = ordered_stages(&def, &[]).len();
 
     println!("{} {}", "Created".green().bold(), target.display());
-    println!("{}: {} base stages.", def.name.bold(), base_stages.to_string().bold());
+    println!(
+        "{}: {} base stages.",
+        def.name.bold(),
+        base_stages.to_string().bold()
+    );
     println!("Next:  cd {} && craftcoders show", target.display());
 
     Ok(())
@@ -57,12 +78,20 @@ pub fn cmd_status(_args: &(), cli_cc_home: Option<&Path>, no_color: bool) -> Res
     let stages = ordered_stages(&def, &config.extensions);
     let cur_idx = current_stage_index(&stages, &config.completed);
 
-    println!("{}   ({}/{})", def.name.bold(), config.completed.len().to_string().bold(), stages.len());
+    println!(
+        "{}   ({}/{})",
+        def.name.bold(),
+        config.completed.len().to_string().bold(),
+        stages.len()
+    );
 
     for (i, stage) in stages.iter().enumerate() {
         let is_current = cur_idx == Some(i);
         let is_completed = config.completed.contains(&stage.slug);
-        println!("{}", render_progress_item(i, stages.len(), stage, is_current, is_completed, no_color));
+        println!(
+            "{}",
+            render_progress_item(i, stages.len(), stage, is_current, is_completed, no_color)
+        );
     }
 
     if cur_idx.is_none() {
@@ -87,7 +116,8 @@ pub fn cmd_show(args: &ShowArgs, cli_cc_home: Option<&Path>, no_color: bool) -> 
         find_stage(&stages, q).map(|s| stages.iter().position(|st| st.slug == s.slug).unwrap())
     } else {
         cur_idx
-    }.context("no stage found")?;
+    }
+    .context("no stage found")?;
 
     let stage = stages[stage_idx];
     let is_completed = config.completed.contains(&stage.slug);
@@ -100,21 +130,34 @@ pub fn cmd_show(args: &ShowArgs, cli_cc_home: Option<&Path>, no_color: bool) -> 
     let resolved = resolve_templates(&markdown);
 
     if args.json {
-        println!("{}", serde_json::json!({
-            "stage": stage_idx + 1,
-            "total": stages.len(),
-            "name": stage.name,
-            "slug": stage.slug,
-            "difficulty": stage.difficulty,
-            "completed": is_completed,
-            "markdown": resolved,
-        }));
+        println!(
+            "{}",
+            serde_json::json!({
+                "stage": stage_idx + 1,
+                "total": stages.len(),
+                "name": stage.name,
+                "slug": stage.slug,
+                "difficulty": stage.difficulty,
+                "completed": is_completed,
+                "markdown": resolved,
+            })
+        );
         return Ok(());
     }
 
     // Print header (not for raw mode)
     if !args.raw {
-        print!("{}", render_stage_header(stage_idx + 1, stages.len(), &stage.name, &stage.difficulty, is_completed, no_color));
+        print!(
+            "{}",
+            render_stage_header(
+                stage_idx + 1,
+                stages.len(),
+                &stage.name,
+                &stage.difficulty,
+                is_completed,
+                no_color
+            )
+        );
     }
 
     if args.raw {
@@ -124,126 +167,155 @@ pub fn cmd_show(args: &ShowArgs, cli_cc_home: Option<&Path>, no_color: bool) -> 
     }
 
     if !args.raw {
-        println!("\n{}", "When you think it works:  craftcoders test   |   to advance:  craftcoders submit".dimmed());
+        println!(
+            "\n{}",
+            "When you think it works:  craftcoders test   |   to advance:  craftcoders submit"
+                .dimmed()
+        );
     }
 
     Ok(())
 }
 
-/// Run tests - common logic for test and submit
-fn run_test_common(
-    docker_image: Option<&str>,
-    dry_run: bool,
-    only_current: bool,
+/// Own selected data so test and submit share validation and process ordering.
+struct PreparedTest {
+    project_root: PathBuf,
+    config: ProjectConfig,
+    course_paths: CoursePaths,
+    definition: crate::course::CourseDefinition,
+    target_idx: usize,
+    target_slug: String,
+    target_name: String,
+    test_cases: Vec<TestCase>,
+}
+
+fn prepare_test(
     upto: Option<&str>,
+    only_current: bool,
+    submit: bool,
     cli_cc_home: Option<&Path>,
-    _no_color: bool,
-) -> Result<i32> {
+) -> Result<PreparedTest> {
     let project_root = find_project_root(Path::new("."))?;
     let config = load_project(&project_root)?;
-    let cc_home_dir = cc_home(cli_cc_home)?;
-    let course_paths = CoursePaths::new(&cc_home_dir, &config.course);
-    let def = load_definition(&course_paths.definition)?;
+    let course_paths = CoursePaths::new(&cc_home(cli_cc_home)?, &config.course);
+    let definition = load_definition(&course_paths.definition)?;
+    let stages = ordered_stages(&definition, &config.extensions);
+    let current = current_stage_index(&stages, &config.completed);
+    let complete_message =
+        "all stages are complete. Enable more with `craftcoders ext add <slug>`.";
+    if submit || upto.is_none() {
+        current.context(complete_message)?;
+    }
+    let target_idx = if let Some(query) = upto {
+        find_stage(&stages, query)
+            .and_then(|stage| {
+                stages
+                    .iter()
+                    .position(|candidate| candidate.slug == stage.slug)
+            })
+            .context("stage not found")?
+    } else {
+        current.context(complete_message)?
+    };
+    let target_slug = stages[target_idx].slug.clone();
+    let target_name = stages[target_idx].name.clone();
+    let test_cases = build_test_cases(&stages, target_idx, only_current);
+    Ok(PreparedTest {
+        project_root,
+        config,
+        course_paths,
+        definition,
+        target_idx,
+        target_slug,
+        target_name,
+        test_cases,
+    })
+}
 
-    // Run compile.sh if it exists and we're not in dry-run mode
+fn execute_test(prepared: &PreparedTest, docker_image: Option<&str>, dry_run: bool) -> Result<i32> {
     if !dry_run {
-        let compile_script = project_root.join("compile.sh");
+        let compile_script = prepared.project_root.join("compile.sh");
         if compile_script.exists() {
             println!("{}", "Running compile.sh...".dimmed());
             let status = Command::new(&compile_script)
-                .current_dir(&project_root)
+                .current_dir(&prepared.project_root)
                 .status()
                 .context("running compile.sh")?;
             if !status.success() {
-                anyhow::bail!("compile.sh failed with exit code: {}", status.code().unwrap_or(-1));
+                anyhow::bail!(
+                    "compile.sh failed with exit code: {}",
+                    status.code().unwrap_or(-1)
+                );
             }
         }
     }
-
-    let stages = ordered_stages(&def, &config.extensions);
-    let cur_idx = current_stage_index(&stages, &config.completed)
-        .context("all stages are complete. Enable more with `craftcoders ext add <slug>`.")?;
-
-    // Determine target index
-    let target_idx = if let Some(q) = upto {
-        find_stage(&stages, q).map(|s| stages.iter().position(|st| st.slug == s.slug).unwrap())
-    } else {
-        Some(cur_idx)
-    }.context("stage not found")?;
-
-    let test_cases = build_test_cases(&stages, target_idx, only_current);
-
-    println!("{}", format!("Running {} stage(s) up to: {}", test_cases.len(), stages[target_idx].name).bold());
-
-    let rc = run_tester(&project_root, &course_paths.tester_binary, &test_cases, docker_image, dry_run)?;
-
-    Ok(rc)
+    println!(
+        "{}",
+        format!(
+            "Running {} stage(s) up to: {}",
+            prepared.test_cases.len(),
+            prepared.target_name
+        )
+        .bold()
+    );
+    run_tester(
+        &prepared.project_root,
+        &prepared.course_paths.tester_binary,
+        &prepared.test_cases,
+        docker_image,
+        dry_run,
+    )
 }
 
-/// Run tests
-pub fn cmd_test(args: &TestArgs, cli_cc_home: Option<&Path>, no_color: bool) -> Result<i32> {
-    run_test_common(args.docker.as_deref(), args.dry_run, args.only_current, args.upto.as_deref(), cli_cc_home, no_color)
+/// Run tests, permitting explicit retests even after completion.
+pub fn cmd_test(args: &TestArgs, cli_cc_home: Option<&Path>, _no_color: bool) -> Result<i32> {
+    let prepared = prepare_test(args.upto.as_deref(), args.only_current, false, cli_cc_home)?;
+    execute_test(&prepared, args.docker.as_deref(), args.dry_run)
 }
 
-/// Submit (test and advance on pass)
+/// Submit saves only the selected target, after a successful real run.
 pub fn cmd_submit(args: &SubmitArgs, cli_cc_home: Option<&Path>, _no_color: bool) -> Result<()> {
-    let project_root = find_project_root(Path::new("."))?;
-    let mut config = load_project(&project_root)?;
-    let cc_home_dir = cc_home(cli_cc_home)?;
-    let course_paths = CoursePaths::new(&cc_home_dir, &config.course);
-    let def = load_definition(&course_paths.definition)?;
-
-
-    let compile_script = project_root.join("compile.sh");
-    if compile_script.exists() {
-        println!("{}", "Running compile.sh...".dimmed());
-        let status = Command::new(&compile_script)
-            .current_dir(&project_root)
-            .status()
-            .context("running compile.sh")?;
-        if !status.success() {
-            anyhow::bail!("compile.sh failed with exit code: {}", status.code().unwrap_or(-1));
-        }
-    }
-
-    let stages = ordered_stages(&def, &config.extensions);
-    let cur_idx = current_stage_index(&stages, &config.completed)
-        .context("all stages are complete. Enable more with `craftcoders ext add <slug>`.")?;
-
-    // Determine target index
-    let target_idx = if let Some(ref q) = args.upto {
-        find_stage(&stages, q).map(|s| stages.iter().position(|st| st.slug == s.slug).unwrap())
-    } else {
-        Some(cur_idx)
-    }.context("stage not found")?;
-
-    let test_cases = build_test_cases(&stages, target_idx, false);
-
-    println!("{}", format!("Running {} stage(s) up to: {}", test_cases.len(), stages[target_idx].name).bold());
-
-    let rc = run_tester(&project_root, &course_paths.tester_binary, &test_cases, args.docker.as_deref(), args.dry_run)?;
-
+    let mut prepared = prepare_test(args.upto.as_deref(), false, true, cli_cc_home)?;
+    let rc = execute_test(&prepared, args.docker.as_deref(), args.dry_run)?;
     if args.dry_run {
         return Ok(());
     }
-
     if rc != 0 {
-        println!("\n{}", "Not passing yet. Keep going, then run `craftcoders submit` again.".red().bold());
+        println!(
+            "\n{}",
+            "Not passing yet. Keep going, then run `craftcoders submit` again."
+                .red()
+                .bold()
+        );
         std::process::exit(rc);
     }
-
-    // Advance progress
-    config.completed.push(stages[target_idx].slug.clone());
-    save_project(&project_root, &config)?;
-
-    println!("\n{} {}", "✔ Stage".green().bold(), format!("{} complete: {}", target_idx + 1, stages[target_idx].name).green());
-
-    if target_idx + 1 < stages.len() {
-        println!("Next: stage {} - {}   (run `craftcoders show`)", target_idx + 2, stages[target_idx + 1].name);
-    } else {
-        println!("{}", "That was the last enabled stage. Add more with `craftcoders ext add <slug>`.".green());
+    if !prepared.config.completed.contains(&prepared.target_slug) {
+        prepared.config.completed.push(prepared.target_slug);
+        save_project(&prepared.project_root, &prepared.config)?;
     }
-
+    println!(
+        "\n{} {}",
+        "✔ Stage".green().bold(),
+        format!(
+            "{} complete: {}",
+            prepared.target_idx + 1,
+            prepared.target_name
+        )
+        .green()
+    );
+    let stages = ordered_stages(&prepared.definition, &prepared.config.extensions);
+    if let Some(next) = current_stage_index(&stages, &prepared.config.completed) {
+        println!(
+            "Next: stage {} - {}   (run `craftcoders show`)",
+            next + 1,
+            stages[next].name
+        );
+    } else {
+        println!(
+            "{}",
+            "That was the last enabled stage. Add more with `craftcoders ext add <slug>`.".green()
+        );
+    }
     Ok(())
 }
 
@@ -265,12 +337,25 @@ pub fn cmd_ext(action: &ExtAction, cli_cc_home: Option<&Path>, _no_color: bool) 
                     format!("{}", "off".dimmed())
                 };
                 let count = ext.stage_count.to_string();
-                println!(" {}  {:<20} {} ({} stages)", status, ext.slug.bold(), ext.name, count);
+                println!(
+                    " {}  {:<20} {} ({} stages)",
+                    status,
+                    ext.slug.bold(),
+                    ext.name,
+                    count
+                );
             }
         }
         ExtAction::Add { slug } => {
             if !def.extensions.iter().any(|e| e.slug == *slug) {
-                anyhow::bail!("unknown extension; choose from: {}", def.extensions.iter().map(|e| e.slug.as_str()).collect::<Vec<_>>().join(", "));
+                anyhow::bail!(
+                    "unknown extension; choose from: {}",
+                    def.extensions
+                        .iter()
+                        .map(|e| e.slug.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
             }
             if !config.extensions.contains(slug) {
                 config.extensions.push(slug.clone());
@@ -289,14 +374,19 @@ pub fn cmd_ext(action: &ExtAction, cli_cc_home: Option<&Path>, _no_color: bool) 
 }
 
 /// Update course and tester
-pub fn cmd_update(_args: &(), cli_cc_home: Option<&Path>, _no_color: bool) -> Result<()> {
+pub fn cmd_update(args: &UpdateArgs, cli_cc_home: Option<&Path>, _no_color: bool) -> Result<()> {
     let project_root = find_project_root(Path::new("."))?;
     let config = load_project(&project_root)?;
     let cc_home_dir = cc_home(cli_cc_home)?;
     let course_paths = CoursePaths::new(&cc_home_dir, &config.course);
 
     update_repos(&cc_home_dir, &config.course)?;
-    build_tester(&course_paths, &config.course, which("go").is_err())?;
+    let target = match args.build_target {
+        None => BuildTarget::Auto,
+        Some(UpdateBuildTarget::Host) => BuildTarget::Host,
+        Some(UpdateBuildTarget::Linux) => BuildTarget::Linux,
+    };
+    build_tester(&course_paths, target, true)?;
 
     println!("{}", "updated course and tester".green().bold());
     Ok(())
@@ -310,7 +400,7 @@ pub fn cmd_doctor(_args: &(), cli_cc_home: Option<&Path>, _no_color: bool) -> Re
     // Git
     match which("git") {
         Ok(path) => println!("{} git: {}", "✔".green(), path.display()),
-        Err(_) => println!("{} git: {}", "✘".red(), "not found (required)"),
+        Err(_) => println!("{} git: not found (required)", "✘".red()),
     }
 
     // Go
@@ -320,7 +410,10 @@ pub fn cmd_doctor(_args: &(), cli_cc_home: Option<&Path>, _no_color: bool) -> Re
             let version = String::from_utf8_lossy(&out.stdout);
             println!("{} go: {}", "✔".green(), version.trim());
         }
-        Err(_) => println!("{} go: {}", "⚠".yellow(), "not found (will use Docker for tester build)"),
+        Err(_) => println!(
+            "{} go: not found (will use Docker for tester build)",
+            "⚠".yellow()
+        ),
     }
 
     // Docker
@@ -330,7 +423,10 @@ pub fn cmd_doctor(_args: &(), cli_cc_home: Option<&Path>, _no_color: bool) -> Re
             let version = String::from_utf8_lossy(&out.stdout);
             println!("{} docker: {}", "✔".green(), version.trim());
         }
-        Err(_) => println!("{} docker: {}", "⚠".yellow(), "not found (required for --docker and tester build without Go)"),
+        Err(_) => println!(
+            "{} docker: not found (required for --docker and tester build without Go)",
+            "⚠".yellow()
+        ),
     }
 
     // CC_HOME
@@ -341,9 +437,17 @@ pub fn cmd_doctor(_args: &(), cli_cc_home: Option<&Path>, _no_color: bool) -> Re
     match find_project_root(Path::new(".")) {
         Ok(root) => {
             let config = load_project(&root)?;
-            println!("{} Project: {} ({})", "✔".green(), root.display(), config.course);
+            println!(
+                "{} Project: {} ({})",
+                "✔".green(),
+                root.display(),
+                config.course
+            );
         }
-        Err(_) => println!("{} Project: {}", "ℹ".blue(), "not in a project (run `craftcoders init <course>`)"),
+        Err(_) => println!(
+            "{} Project: not in a project (run `craftcoders init <course>`)",
+            "ℹ".blue()
+        ),
     }
 
     // Check installed courses
@@ -360,7 +464,10 @@ pub fn cmd_doctor(_args: &(), cli_cc_home: Option<&Path>, _no_color: bool) -> Re
     }
 
     println!();
-    println!("{}", "For course-specific runtime dependencies, check the tester repo's README.".dimmed());
+    println!(
+        "{}",
+        "For course-specific runtime dependencies, check the tester repo's README.".dimmed()
+    );
 
     Ok(())
 }
@@ -406,7 +513,10 @@ pub fn cmd_list(_args: &(), cli_cc_home: Option<&Path>, _no_color: bool) -> Resu
     }
 
     println!();
-    println!("{}", "Run `craftcoders init <slug>` to start a course.".dimmed());
+    println!(
+        "{}",
+        "Run `craftcoders init <slug>` to start a course.".dimmed()
+    );
 
     Ok(())
 }
@@ -426,7 +536,8 @@ pub fn cmd_open(args: &OpenArgs, cli_cc_home: Option<&Path>, _no_color: bool) ->
         find_stage(&stages, q).map(|s| stages.iter().position(|st| st.slug == s.slug).unwrap())
     } else {
         cur_idx
-    }.context("no stage found")?;
+    }
+    .context("no stage found")?;
 
     let stage = stages[stage_idx];
 
@@ -434,7 +545,11 @@ pub fn cmd_open(args: &OpenArgs, cli_cc_home: Option<&Path>, _no_color: bool) ->
     let desc_dir = course_paths.definition.join("stage_descriptions");
     let markdown_path = fs::read_dir(&desc_dir)?
         .filter_map(|e| e.ok())
-        .find(|e| e.file_name().to_string_lossy().ends_with(&format!("-{}.md", stage.slug)))
+        .find(|e| {
+            e.file_name()
+                .to_string_lossy()
+                .ends_with(&format!("-{}.md", stage.slug))
+        })
         .map(|e| e.path());
 
     let editor = env::var("EDITOR").unwrap_or_else(|_| "vi".to_string());

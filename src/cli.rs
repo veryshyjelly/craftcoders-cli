@@ -1,6 +1,6 @@
 //! CLI argument definitions
 
-use clap::{Parser, Subcommand, Args};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -16,7 +16,7 @@ pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
 
-    /// Set the base directory for courses and testers (default: ~/.craftcodeers)
+    /// Set the base directory for courses and testers (default: ~/.craftcoders)
     #[arg(long, global = true, env = "CC_HOME")]
     pub cc_home: Option<PathBuf>,
 
@@ -50,7 +50,7 @@ pub enum Commands {
     Ext(ExtArgs),
 
     /// Update course and tester to latest, rebuild tester
-    Update,
+    Update(UpdateArgs),
 
     /// Check environment (git, go, docker, runtime deps)
     Doctor,
@@ -147,4 +147,17 @@ pub enum ExtAction {
 pub struct OpenArgs {
     /// Stage to open (default: current)
     pub stage: Option<String>,
+}
+/// Explicit platform overrides; omission retains automatic builder selection.
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum UpdateBuildTarget {
+    Host,
+    Linux,
+}
+
+#[derive(Args, Debug)]
+pub struct UpdateArgs {
+    /// Build for the host with Go, or Linux with Docker (default: automatic)
+    #[arg(long, value_enum)]
+    pub build_target: Option<UpdateBuildTarget>,
 }

@@ -28,19 +28,17 @@ impl ProjectConfig {
 
 pub fn load_project(project_root: &Path) -> Result<ProjectConfig> {
     let path = project_root.join(PROJECT_FILE);
-    let content = fs::read_to_string(&path)
-        .with_context(|| format!("reading {}", path.display()))?;
-    let config: ProjectConfig = serde_json::from_str(&content)
-        .with_context(|| format!("parsing {}", path.display()))?;
+    let content =
+        fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+    let config: ProjectConfig =
+        serde_json::from_str(&content).with_context(|| format!("parsing {}", path.display()))?;
     Ok(config)
 }
 
 pub fn save_project(project_root: &Path, config: &ProjectConfig) -> Result<()> {
     let path = project_root.join(PROJECT_FILE);
-    let content = serde_json::to_string_pretty(config)
-        .context("serializing project config")?;
-    fs::write(&path, content)
-        .with_context(|| format!("writing {}", path.display()))?;
+    let content = serde_json::to_string_pretty(config).context("serializing project config")?;
+    fs::write(&path, content).with_context(|| format!("writing {}", path.display()))?;
     Ok(())
 }
 
@@ -53,9 +51,13 @@ pub fn init_project(project_root: &Path, course: String) -> Result<()> {
 
     // Create codecrafters.yml
     let codecrafters_yml = project_root.join("codecrafters.yml");
-    fs::write(&codecrafters_yml, r#"# Read by the tester. Set debug to true for verbose logs.
+    fs::write(
+        &codecrafters_yml,
+        r#"# Read by the tester. Set debug to true for verbose logs.
 debug: false
-"#).with_context(|| format!("writing {}", codecrafters_yml.display()))?;
+"#,
+    )
+    .with_context(|| format!("writing {}", codecrafters_yml.display()))?;
 
     let compile = project_root.join("compile.sh");
     let compile_content = r#"#!/bin/sh
@@ -81,8 +83,7 @@ exit 1
 echo "edit your_program.sh to start your program" >&2
 exit 1
 "#;
-    fs::write(&entry, entry_content)
-        .with_context(|| format!("writing {}", entry.display()))?;
+    fs::write(&entry, entry_content).with_context(|| format!("writing {}", entry.display()))?;
 
     // Make executable
     #[cfg(unix)]

@@ -79,5 +79,9 @@ pub fn course_repo_url(course: &str) -> String {
 
 /// Get tester repository URL
 pub fn tester_repo_url(course: &str, override_repo: Option<&str>) -> String {
-    format!("{}/{}.git", ORG_URL, override_repo.unwrap_or(&format!("{}-tester", course)))
+    format!(
+        "{}/{}.git",
+        ORG_URL,
+        override_repo.unwrap_or(&format!("{}-tester", course))
+    )
 }

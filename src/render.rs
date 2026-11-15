@@ -1,7 +1,7 @@
 //! Markdown template resolution and terminal rendering
 
 use regex::Regex;
-use termimad::{MadSkin, Alignment, StyledChar};
+use termimad::{Alignment, MadSkin, StyledChar};
 
 /// Resolve the site's template blocks for a human reader with no fixed language
 pub fn resolve_templates(text: &str) -> String {
@@ -44,13 +44,12 @@ pub fn resolve_templates(text: &str) -> String {
 fn remove_lang_is_blocks(text: &str) -> String {
     let mut result = text.to_string();
     let mut changed = true;
+    let open_regex = Regex::new(r"\{\{#lang_is_(\w+)\}\}").unwrap();
 
     while changed {
         changed = false;
         let mut new_result = String::new();
         let mut pos = 0;
-
-        let open_regex = Regex::new(r"\{\{#lang_is_(\w+)\}\}").unwrap();
 
         while let Some(open_match) = open_regex.find_at(&result, pos) {
             // Copy text before the opening tag
@@ -148,10 +147,10 @@ pub fn create_skin(no_color: bool) -> MadSkin {
         skin.quote_mark.set_fg(termimad::rgb(120, 120, 120));
     } else {
         // Nice color scheme
-        skin.headers[0].set_fg(termimad::rgb(255, 180, 60));   // Orange
-        skin.headers[1].set_fg(termimad::rgb(100, 200, 255));  // Blue
-        skin.headers[2].set_fg(termimad::rgb(120, 220, 120));  // Green
-        skin.headers[3].set_fg(termimad::rgb(180, 180, 255));  // Light purple
+        skin.headers[0].set_fg(termimad::rgb(255, 180, 60)); // Orange
+        skin.headers[1].set_fg(termimad::rgb(100, 200, 255)); // Blue
+        skin.headers[2].set_fg(termimad::rgb(120, 220, 120)); // Green
+        skin.headers[3].set_fg(termimad::rgb(180, 180, 255)); // Light purple
         skin.bold.set_fg(termimad::rgb(255, 220, 100));
         skin.italic.set_fg(termimad::rgb(200, 200, 255));
         skin.code_block.set_fg(termimad::rgb(160, 200, 160));
@@ -202,7 +201,10 @@ pub fn render_stage_header(
         status.yellow().to_string()
     };
 
-    let header = format!("Stage {}/{} · {} · {} {}", stage_num, total, name, difficulty, status_styled);
+    let header = format!(
+        "Stage {}/{} · {} · {} {}",
+        stage_num, total, name, difficulty, status_styled
+    );
     let underline = "─".repeat(header.chars().count());
 
     if no_color {
@@ -225,21 +227,42 @@ pub fn render_progress_item(
 
     let num = format!("{:>3}.", index + 1);
     let name = &stage.name;
-    let ext = stage.primary_extension_slug.as_ref().map(|e| format!(" [{}]", e)).unwrap_or_default();
+    let ext = stage
+        .primary_extension_slug
+        .as_ref()
+        .map(|e| format!(" [{}]", e))
+        .unwrap_or_default();
 
     let (marker, styled) = if no_color {
-        if is_completed { ("✔", format!("{} {}{}", "✔", num, name)) }
-        else if is_current { ("▶", format!("{} {}{}", "▶", num, name)) }
-        else { ("·", format!("{} {}{}", "·", num, name)) }
+        if is_completed {
+            ("✔", format!("{} {}{}", "✔", num, name))
+        } else if is_current {
+            ("▶", format!("{} {}{}", "▶", num, name))
+        } else {
+            ("·", format!("{} {}{}", "·", num, name))
+        }
     } else if is_completed {
-        ("✔", format!("{} {}{}", "✔".green(), num.dimmed(), name.dimmed()))
+        (
+            "✔",
+            format!("{} {}{}", "✔".green(), num.dimmed(), name.dimmed()),
+        )
     } else if is_current {
-        ("▶", format!("{} {}{}", "▶".yellow(), num.bold(), name.bold()))
+        (
+            "▶",
+            format!("{} {}{}", "▶".yellow(), num.bold(), name.bold()),
+        )
     } else {
-        ("·", format!("{} {}{}", "·".dimmed(), num.dimmed(), name.dimmed()))
+        (
+            "·",
+            format!("{} {}{}", "·".dimmed(), num.dimmed(), name.dimmed()),
+        )
     };
 
-    let ext_styled = if no_color { ext } else { ext.dimmed().to_string() };
+    let ext_styled = if no_color {
+        ext
+    } else {
+        ext.dimmed().to_string()
+    };
 
     format!(" {} {}{}", marker, styled, ext_styled)
 }
