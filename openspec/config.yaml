@@ -1,0 +1,25 @@
+schema: spec-driven
+context: |
+  These baseline specs describe the implemented CraftCoders local challenge CLI.
+  The root README contains aspirational features and inaccurate examples; check
+  src/cli.rs and the implementation before treating its claims as requirements.
+  Preserve the local workflow: showing instructions, testing, and submitting
+  with cached course content and testers must not require the hosted website.
+  Initial repository downloads, updates, and dependency builds may use a network.
+  Keep compatibility with existing .craftcoders.json files and the official
+  tester contract (compile.sh, your_program.sh, CODECRAFTERS_* environment).
+  Treat changes to stage ordering, saved progress, cache layout, and tester
+  invocation as compatibility-sensitive; describe migrations where needed.
+rules:
+  proposal:
+    - Identify affected capability specs and distinguish current behavior from proposed behavior.
+    - State scope, user-visible effects, and any compatibility or network requirements.
+  specs:
+    - Use SHALL or MUST requirements with concrete WHEN/THEN scenarios.
+    - Cover applicable failure paths, stage selection, and progress persistence.
+    - Do not promote unimplemented README examples into baseline requirements.
+  design:
+    - Explain effects on workspace state, shared cache, external processes, and the tester contract when relevant.
+  tasks:
+    - Include focused verification for changed behavior; prefer temporary workspaces and fixtures over real downloads or user caches.
+    - Validate OpenSpec artifacts with openspec validate --all --strict --no-interactive.
