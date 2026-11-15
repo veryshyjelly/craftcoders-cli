@@ -21,8 +21,16 @@ the target, and `test --only-current` SHALL restrict execution to that target.
 - **THEN** the tester receives only the third stage's case
 
 #### Scenario: No current stage remains
-- **WHEN** `test` or `submit` runs after every enabled stage is complete
+- **WHEN** `test` without an explicit target or `submit` runs after every enabled stage is complete
 - **THEN** it reports that all stages are complete and suggests enabling extensions
+
+#### Scenario: Retest after completing the course
+- **WHEN** all stages are complete and `test --upto 2` selects an enabled stage
+- **THEN** the tester runs the requested stage prefix without changing completion
+
+#### Scenario: Reject an invalid target before compilation
+- **WHEN** a test or submission selector matches no enabled stage
+- **THEN** the command fails before compilation or tester execution and leaves completion unchanged
 
 ### Requirement: Compile before executing tests
 Non-preview test and submit execution SHALL run `compile.sh` from the workspace
@@ -41,6 +49,8 @@ include a slug, `stage-<number>` log prefix, and `Stage #<number>: <name>` title
 #### Scenario: Execute on the host
 - **WHEN** a tester runs without `--docker`
 - **THEN** repository and submission variables reference the absolute workspace path
+- **AND** its working directory is the absolute workspace root
+- **AND** the tester inherits the ambient environment with only the official contract variables overridden
 - **AND** the tester inherits stdin, stdout, and stderr for interactive streaming
 
 ### Requirement: Support Docker tester execution
@@ -57,9 +67,7 @@ and both tester directory variables, and reject a known non-Linux tester marker.
 - **THEN** it reports that Docker requires a Linux tester instead of launching it
 
 ### Requirement: Preview the tester invocation
-With `--dry-run`, the CLI SHALL print the tester command and formatted test cases
-without launching the tester or persisting completion. The `test` command SHALL
-also skip compilation in this mode.
+With `--dry-run`, both `test` and `submit` SHALL print the planned tester command and formatted cases without compiling, launching the tester, or persisting completion. Preview output SHALL exclude unrelated inherited environment values and handle Unicode paths and values without panicking.
 
 #### Scenario: Preview a test run
 - **WHEN** `test --dry-run` selects valid stages with a compatible tester marker
@@ -67,8 +75,12 @@ also skip compilation in this mode.
 - **AND** neither compilation nor the tester executes
 
 #### Scenario: Preview a submission
-- **WHEN** `submit --dry-run` reaches the tester preview after its compilation step
-- **THEN** the tester does not execute and completion remains unchanged
+- **WHEN** `submit --dry-run` selects valid stages with a compatible tester marker
+- **THEN** neither compilation nor the tester executes and completion remains byte-for-byte unchanged
+
+#### Scenario: Preview with a secret and Unicode
+- **WHEN** the parent environment includes an unrelated synthetic secret and the workspace path contains multibyte characters
+- **THEN** the preview succeeds without exposing the secret or splitting a UTF-8 character
 
 ### Requirement: Preserve test exit status without saving progress
 The `test` command SHALL exit with the tester's exit code and leave the saved
@@ -80,8 +92,8 @@ completion list unchanged, regardless of whether the tester passes.
 
 ### Requirement: Save the submission target only after success
 A non-preview `submit` SHALL append the selected target slug to `completed` only
-when the tester returns zero, save the workspace, and announce the next enabled
-stage or the end of the enabled course.
+when the tester returns zero, save the workspace, and announce the first unfinished enabled
+stage from saved completion, or the end only when none remains.
 
 #### Scenario: Submit the current stage successfully
 - **WHEN** the tester passes for a normal submission
@@ -91,6 +103,7 @@ stage or the end of the enabled course.
 - **WHEN** `submit --upto 3` passes while earlier stages remain unfinished
 - **THEN** only the third stage's slug is appended to completed
 - **AND** earlier unfinished stages remain eligible to be current
+- **AND** guidance names the first unfinished stage rather than declaring the enabled course finished
 
 #### Scenario: Submission fails
 - **WHEN** the tester returns a nonzero exit code during submission

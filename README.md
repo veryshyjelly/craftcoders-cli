@@ -109,6 +109,6 @@ cargo clippy --all-targets -- -D warnings
 
 Integration tests use temporary workspaces, isolated caches, and fake external tools. Source modules are under `src/`; behavioral tests are under `tests/`.
 
-See [the OpenSpec workflow](openspec/README.md) and [capability specifications](openspec/specs/) for the baseline and change process. [The active workflow-hardening change](openspec/changes/harden-local-cli-workflows/) records revised contracts pending explicit specification sync or archive.
+See [the OpenSpec workflow](openspec/README.md) and [capability specifications](openspec/specs/) for the baseline and change process. [The archived workflow-hardening change](openspec/changes/archive/2026-11-15-harden-local-cli-workflows/) records the implemented contracts and verification evidence.
 
 Licensed under MIT. Not affiliated with or endorsed by CodeCrafters.io.
