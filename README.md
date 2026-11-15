@@ -4,7 +4,23 @@ Practice CodeCrafters challenges locally using cached course instructions and th
 
 ## Install
 
-Build with a Rust toolchain supporting edition 2024:
+Homebrew release automation is being prepared. Before the first verified public
+release and generated tap formula are available, use the source installation
+below. After publication and the tap's next successful hourly or manual update:
+
+```sh
+brew install veryshyjelly/tap/craftcoders
+craftcoders --version
+```
+
+Homebrew installs a prebuilt CLI without Rust. Release archives target macOS and
+Linux on ARM64 and AMD64. macOS binaries are built and smoke-tested on macOS 15;
+older macOS releases are not currently validated. Linux GNU binaries are built
+and tested on Ubuntu 22.04 (glibc 2.35); compatibility with older glibc or other
+Linux distributions is not claimed. Hosted results establish per-platform
+availability after the release workflow completes.
+
+Build from this checkout with a Rust toolchain supporting edition 2024:
 
 ```sh
 cargo install --path .
@@ -111,4 +127,56 @@ Integration tests use temporary workspaces, isolated caches, and fake external t
 
 See [the OpenSpec workflow](openspec/README.md) and [capability specifications](openspec/specs/) for the baseline and change process. [The archived workflow-hardening change](openspec/changes/archive/2026-11-15-harden-local-cli-workflows/) records the implemented contracts and verification evidence.
 
-Licensed under MIT. Not affiliated with or endorsed by CodeCrafters.io.
+## Releasing
+
+Release automation is in [`.github/workflows/release.yml`](.github/workflows/release.yml).
+Branch, pull request, and manual runs validate source and packages without
+publishing. The workflow pins the verified Rust 1.94.0 toolchain; this is a build
+toolchain choice, not a claim about the minimum supported Rust version. Python
+3.11 or newer runs the standard-library packaging helpers.
+
+Before tagging, set the Cargo package version deliberately, run the checks,
+review the changes, and commit them. Tags must exactly match `vMAJOR.MINOR.PATCH`
+and Cargo metadata; prerelease tags and mismatches fail. For the current version,
+the authorized release tag is `v0.1.0`:
+
+```sh
+python3 -m unittest discover -s scripts -p 'test_release.py' -v
+cargo test --locked
+cargo build --locked --release
+python3 scripts/release.py version --tag v0.1.0
+# Example on native Apple Silicon; choose the matching platform on other hosts.
+python3 scripts/release.py package --tag v0.1.0 --binary target/release/craftcoders --platform darwin_arm64 --output /tmp/craftcoders-local-package
+# Maintainer publication starts only when the matching stable tag is pushed.
+```
+
+The four native jobs test and build the tagged revision, check exact binary
+`--version` output, and package `craftcoders_<version>_<darwin|linux>_<arm64|amd64>.tar.gz`.
+Each archive contains exactly the executable `craftcoders`, `README.md`, and
+`LICENSE` at its root. After all four jobs pass, the integrity job requires every
+archive and writes sorted SHA-256 entries to `checksums.txt`. A complete local
+four-platform collection can be checked with:
+
+```sh
+python3 scripts/release.py manifest --tag v0.1.0 --directory dist
+python3 scripts/release.py validate --tag v0.1.0 --directory dist
+```
+
+Only the pushed-tag publication job has repository write permission. It creates
+a draft with all four archives and the manifest, checks the uploaded asset set,
+and downloads and verifies the remote bytes before making the release public.
+An existing draft or published release causes a failure; reruns never overwrite
+assets. A failed upload or verification leaves a draft unpublished. Inspect the
+failure and draft explicitly before recovery: repair the workflow first, then
+remove an incomplete unpublished draft through GitHub and rerun only after
+review. Published bytes are immutable; use a new version for a published-release
+correction. No cross-repository token or dispatch is required: the tap polls
+public releases and verifies all four archives before generating its formula.
+
+SHA-256 verifies consistency with the release manifest; it does not provide an
+independent signature. The [upstream releases](https://github.com/veryshyjelly/craftcoders-cli/releases)
+and [Homebrew tap](https://github.com/veryshyjelly/homebrew-tap) are the distribution
+sources. Installation of the CLI does not install challenge tester dependencies;
+Go or Docker and course-specific runtimes remain necessary when applicable.
+
+Licensed under [MIT](LICENSE). Not affiliated with or endorsed by CodeCrafters.io.

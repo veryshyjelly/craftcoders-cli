@@ -3,7 +3,7 @@ name = "craftcoders"
 version = "0.1.0"
 edition = "2024"
 description = "Practice CodeCrafters challenges locally — no website, no starters, just you and the official testers"
-repository = "https://github.com/codecrafters-io"
+repository = "https://github.com/veryshyjelly/craftcoders-cli"
 license = "MIT"
 authors = ["Ayush Biswas"]
 
